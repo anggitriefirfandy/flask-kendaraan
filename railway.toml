@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+buildCommand = "echo building!"
+
+[deploy]
+[environments.production.deploy]
+startCommand = "echo starting production!"
+
+restartPolicyType = "never"
