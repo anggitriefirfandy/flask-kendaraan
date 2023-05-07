@@ -5,3 +5,4 @@ flask-sqlalchemy
 pyjwt
 flask-cors
 datetime
+mysqlclient
