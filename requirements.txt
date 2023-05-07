@@ -3,3 +3,6 @@ flask-restx
 flask-mail
 flask-sqlalchemy
 pyjwt
+flask-cors
+werkzeug.security
+datetime
