@@ -6,4 +6,4 @@ buildCommand = "echo building!"
 [environments.production.deploy]
 startCommand = "echo starting production!"
 
-restartPolicyType = "never"
+restartPolicyType = "ON_FAILURE"

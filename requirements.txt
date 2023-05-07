@@ -4,5 +4,4 @@ flask-mail
 flask-sqlalchemy
 pyjwt
 flask-cors
-werkzeug.security
 datetime

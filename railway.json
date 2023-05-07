@@ -7,6 +7,6 @@
     "deploy": {
       "startCommand": "echo starting!",
       
-      "restartPolicyType": "never"
+      "restartPolicyType": "ON_FAILURE"
     }
   }
