@@ -99,7 +99,7 @@ class Registration(Resource):
 
 otpparser = reqparse.RequestParser()
 otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
-@api.route('/verify')
+@api.route('/verifikasi')
 class Verify(Resource):
     @api.expect(otpparser)
     def post(self):
@@ -228,22 +228,23 @@ verifyParser.add_argument(
     'otp', type=str, help='firstname', location='json', required=True)
 
 
-@api.route('/verify')
-class Verify(Resource):
-    @api.expect(verifyParser)
-    def post(self):
-        args = verifyParser.parse_args()
-        otp = args['otp']
-        try:
-            user = Users.verify_token(otp)
-            if user is None:
-                return {'message' : 'Verifikasi gagal'}, 401
-            user.is_verified = True
-            db.session.commit()
-            return {'message' : 'Akun sudah terverifikasi'}, 200
-        except Exception as e:
-            print(e)
-            return {'message' : 'Terjadi error'}, 200
+# @api.route('/verify')
+# class Verify(Resource):
+#     @api.expect(verifyParser)
+#     def post(self):
+#         args = verifyParser.parse_args()
+#         otp = args['otp']
+#         try:
+#             user = Users.verify_token(otp)
+#             if user is None:
+#                 return {'message' : 'Verifikasi gagal'}, 401
+#             user.is_verified = True
+#             db.session.commit()
+#             return {'message' : 'Akun sudah terverifikasi'}, 200
+#         except Exception as e:
+#             print(e)
+#             return {'message' : 'Terjadi error'}, 200
+
 #editpasswordParser
 editPasswordParser =  reqparse.RequestParser()
 editPasswordParser.add_argument('current_password', type=str, help='current_password',location='json', required=True)
@@ -273,4 +274,5 @@ class Password(Resource):
         return {'message' : 'Password Berhasil Diubah'}, 200
 
 if __name__ == '__main__':
-    app.run(ssl_context='adhoc', debug=True)
+    # app.run(ssl_context='adhoc', debug=True)
+    app.run(host='0.0.0.0' , debug=True)
