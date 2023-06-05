@@ -12,8 +12,12 @@ pyopenssl = "*"
 pyjwt = "*"
 mysqlclient = "*"
 flask-mail = "*"
+pymysql = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.10"
+
+[pipenv]
+allow_prereleases = true

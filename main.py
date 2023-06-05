@@ -1,3 +1,5 @@
+import pymysql
+pymysql.install_as_MySQLdb()
 from flask import Flask, make_response, jsonify, render_template,session
 from flask_restx import Resource, Api, reqparse
 from flask_cors import  CORS
@@ -10,6 +12,7 @@ from flask_mail import Mail, Message
 app = Flask(__name__)
 api = Api(app)
 CORS(app)
+port = int(os.environ.get("RAILWAY_PORT", 5000))
 app.config["SQLALCHEMY_DATABASE_URI"] = "mysql://root:@127.0.0.1:3306/kendaraan"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'whateveryouwant'
@@ -35,7 +38,12 @@ class Users(db.Model):
     createdAt = db.Column(db.Date)
     updatedAt = db.Column(db.Date)
 
-
+# class History(db.Model):
+#     id = db.Column(db.Integer(), primary_key=True, nullable=False)
+#     nama = db.Column(db.String(30), nullable=False)
+#     jenis_kendaraan = db.Column(db.String(30), nullable=False)
+#     tanggal = db.Column(db.Date)
+#     waktu = db.Column(db.Time)
 
 
 
@@ -44,6 +52,31 @@ class Users(db.Model):
 # https://medium.com/@stevenrmonaghan/password-reset-with-flask-mail-protocol-ddcdfc190968
 # https://www.youtube.com/watch?v=g_j6ILT-X0k
 # https://stackoverflow.com/questions/72547853/unable-to-send-email-in-c-sharp-less-secure-app-access-not-longer-available
+
+#history
+# historyParser = reqparse.RequestParser()
+# historyParser.add_argument('jenis_kendaraan', type=str, help='Jenis Kendaraan', location='json', required=True)
+# historyParser.add_argument('tanggal', type=str, help='Tanggal', location='json', required=True)
+# historyParser.add_argument('waktu', type=str, help='Waktu', location='json', required=True)
+
+# @app.route('/history')
+# def get_history():
+#     args = historyParser.parse_args()
+#     jenis_kendaraan = args['jenis_kendaraan']
+#     tanggal = args['tanggal']
+#     waktu = args['waktu']
+
+#     # Lanjutkan dengan logika lainnya untuk mendapatkan data history
+#     history_list = History.query.all()
+#     history_data = []
+#     for history in history_list:
+#         history_data.append({
+#             'nama': history.nama,
+#             'jenis_kendaraan': history.jenis_kendaraan,
+#             'tanggal': history.tanggal.strftime('%Y-%m-%d'),
+#             'waktu': history.waktu.strftime('%H:%M:%S')
+#         })
+#     return jsonify(history_data)
 
 
 
@@ -90,6 +123,8 @@ class Registration(Resource):
         token =  random.randrange(10000,99999)
         session['email'] = user.email
         session['token'] = str(token)
+        print("Isi session email:", session['email'])
+        print("Isi session token:", session['token'])
         msg.html=render_template(
         'verify_email.html', token=token)
         mail.send(msg)
@@ -99,14 +134,46 @@ class Registration(Resource):
 
 otpparser = reqparse.RequestParser()
 otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
+# @api.route('/verifikasi')
+# class Verify(Resource):
+#     @api.expect(otpparser)
+#     def post(self):
+#         args = otpparser.parse_args()
+#         otp = args['otp']
+#         if 'token' in session:
+#             sesion = session['token']
+#             if otp == sesion:
+#                 email = session['email']
+
+#                 user = Users.query.filter_by(email=email).first()
+#                 user.is_verified = True
+
+#                 db.session.commit()  # Melakukan komit ke database
+
+#                 if db.session.is_active:  # Memeriksa apakah sesi masih aktif
+#                     session.pop('token', None)
+#                     print("Perubahan berhasil dikommit ke database")
+#                     return {'message': 'Email berhasil diverifikasi'}
+#                 else:
+#                     print("Terjadi kesalahan saat melakukan komit")
+#                     db.session.rollback()  # Mengembalikan perubahan jika terjadi kesalahan
+#                     return {'message': 'Terjadi kesalahan pada server'}
+
+#             else:
+#                 return {'message': 'Kode OTP Salah'}
+#         else:
+#             return {'message': 'Kode OTP Salah'}
+
 @api.route('/verifikasi')
 class Verify(Resource):
     @api.expect(otpparser)
     def post(self):
         args = otpparser.parse_args()
         otp = args['otp']
+        print("Kode OTP:", otp)  # Cetak kode OTP di log
         if 'token' in session:
             sesion = session['token']
+            print("Token:", sesion)
             if otp == sesion:
                 email = session['email']
 
@@ -114,6 +181,7 @@ class Verify(Resource):
                 user.is_verified = True
                 db.session.commit()
                 session.pop('token',None)
+                print('Email berhasil diverifikasi')
                 return {'message' : 'Email berhasil diverifikasi'}
             else:
                 return {'message' : 'Kode Otp Salah'}
@@ -131,6 +199,8 @@ class LogIn(Resource):
         email       = args['email']
         password    = args['password']
         # cek jika kolom email dan password tidak terisi
+        print(email)
+        print(password)
         if not email or not password:
             return {
                 'message': 'Email Dan Password Harus Diisi'
@@ -152,16 +222,17 @@ class LogIn(Resource):
                         "user_email":user.email,
                         "exp": datetime.utcnow() + timedelta(days= 1)
                 },app.config['SECRET_KEY'],algorithm="HS256")
+                print(f'Token: {token}')
                 return {'message' : 'Login Berhasil',
                         'token' : token
                         },200
+                
             else:
                 return {'message' : 'Email Belum Diverifikasi ,Silahka verifikasikan terlebih dahulu '},401
         else:
             return {
                 'message': 'Email / Password Salah'
             }, 400
-
 def decodetoken(jwtToken):
     decode_result = jwt.decode(
                jwtToken,
