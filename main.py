@@ -9,6 +9,17 @@ from datetime import datetime, timedelta
 import jwt, os,random
 from flask_mail import Mail, Message
 
+# Yolov5 library
+import cv2
+from PIL import Image
+import torch
+import numpy as np
+from pathlib import Path
+from models.experimental import attempt_load
+from utils.general import non_max_suppression, scale_coords, check_img_size
+from utils.plots import plot_one_box
+from utils.torch_utils import select_device
+
 app = Flask(__name__)
 api = Api(app)
 CORS(app)
@@ -78,6 +89,62 @@ class Users(db.Model):
 #         })
 #     return jsonify(history_data)
 
+parserVideo = reqparse.RequestParser()
+parserVideo.add_argument('Authorization', type=str, location='headers', required=True)
+parserVideo.add_argument('video', type=FileStorage, location='files', required=True)
+
+@api.route('/dataset/video')
+class UploadVideo(Resource):
+	@api.expect(parserVideo)
+	def post(self):
+		@after_this_request
+		def removed_file(response):
+			shutil.rmtree(os.path.join("./runs/detect", filename))
+			return response
+		args = parserVideo.parse_args()
+		bearerAuth = args['Authorization']
+		video = args['video']
+		if bearerAuth.split(' ')[0] != 'Bearer':
+			return {
+				'message': 'Bearer token not found!'
+			}, 401
+		if video is None:
+			return {
+				'message': 'Video is required!'
+			}, 400
+		token = bearerAuth.split(' ')[1]
+		try:
+			payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"], audience=AUDIENCE_MOBILE, issuer=ISSUER)
+			user = db.session.execute(db.select(User).filter_by(id=payload['user_id'])).first()
+			if user is None:
+				return {
+					'message': 'User not found!'
+				}, 404
+			if video.filename == '':
+				return {
+					'message': 'File not found!'
+				}, 400
+			if video and allowed_file(video.filename):
+				filename = secure_filename(video.filename)
+				video.save(os.path.join(app.config['VIDEO_FOLDER'], filename))
+			subprocess.run(['python3', 'detect.py', '--source', f'./public/videos/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])	
+			print('success predict')
+			os.remove(f'./public/videos/{filename}')
+			print('success remove')
+			return send_file(os.path.join(f"./runs/detect/{filename}", filename), mimetype='video/mp4', as_attachment=True, download_name=filename)
+			
+		except jwt.ExpiredSignatureError:
+			return {
+				'message': 'Token is expired!'
+			}, 400
+		except jwt.InvalidTokenError:
+			return {
+				'message': 'Invalid Token!'
+			}, 400
+		except Exception as err:
+			return {
+				'message': str(err)
+			}, 500
 
 
 #parserRegister
