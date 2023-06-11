@@ -8,7 +8,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt, os,random
 from flask_mail import Mail, Message
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
 
+import os
+import shutil
+import subprocess
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', "mp4"}
+
+def allowed_file(filename):
+	return '.' in filename and \
+		filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 # Yolov5 library
 import cv2
 from PIL import Image
@@ -126,10 +136,10 @@ class UploadVideo(Resource):
 				}, 400
 			if video and allowed_file(video.filename):
 				filename = secure_filename(video.filename)
-				video.save(os.path.join(app.config['VIDEO_FOLDER'], filename))
-			subprocess.run(['python3', 'detect.py', '--source', f'./public/videos/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])	
+				video.save(os.path.join("/video", filename))
+			subprocess.run(['python3', 'detect.py', '--source', f'./video/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])	
 			print('success predict')
-			os.remove(f'./public/videos/{filename}')
+			os.remove(f'.video/{filename}')
 			print('success remove')
 			return send_file(os.path.join(f"./runs/detect/{filename}", filename), mimetype='video/mp4', as_attachment=True, download_name=filename)
 			

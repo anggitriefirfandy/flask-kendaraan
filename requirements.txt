@@ -14,3 +14,20 @@ pymysql
 cloudinary
 flask-socketio
 python-dotenv
+ultralytics
+gitpython
+matplotlib
+numpy
+opencv-contrib-python-headless
+Pillow
+psutil
+PyYAML
+scipy
+thop
+torch
+torchvision
+tqdm
+
+# plotting
+pandas
+seaborn
