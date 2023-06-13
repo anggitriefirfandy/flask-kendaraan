@@ -1,6 +1,6 @@
 import pymysql
 pymysql.install_as_MySQLdb()
-from flask import Flask, make_response, jsonify, render_template,session
+from flask import Flask, after_this_request, make_response, jsonify, render_template, send_file,session
 from flask_restx import Resource, Api, reqparse
 from flask_cors import  CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -20,15 +20,27 @@ def allowed_file(filename):
 	return '.' in filename and \
 		filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 # Yolov5 library
-import cv2
-from PIL import Image
-import torch
-import numpy as np
-from pathlib import Path
-from models.experimental import attempt_load
-from utils.general import non_max_suppression, scale_coords, check_img_size
-from utils.plots import plot_one_box
-from utils.torch_utils import select_device
+# import cv2
+# from PIL import Image
+# import torch
+# import numpy as np
+# from pathlib import Path
+# from models.experimental import attempt_load
+# from utils.general import non_max_suppression, scale_boxes, check_img_size
+# from utils.plots import plot_one_box
+# from utils.torch_utils import select_device
+
+# import argparse
+# import platform
+# import sys
+# from pathlib import Path
+# import torch
+
+from models.common import DetectMultiBackend
+from utils.dataloaders import IMG_FORMATS, VID_FORMATS, LoadImages, LoadScreenshots, LoadStreams
+from utils.general import (LOGGER, Profile, check_file, check_img_size,check_imshow, check_requirements,colorstr, cv2, increment_path, non_max_suppression, print_args, scale_boxes, strip_optimizer, xyxy2xywh)
+from utils.plots import Annotator, colors, save_one_box
+from utils.torch_utils import select_device, smart_inference_mode
 
 app = Flask(__name__)
 api = Api(app)
@@ -56,6 +68,7 @@ class Users(db.Model):
     email    = db.Column(db.String(64), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
     is_verified = db.Column(db.Boolean(),nullable=False)
+    token = db.Column(db.String(5), nullable=False)
     createdAt = db.Column(db.Date)
     updatedAt = db.Column(db.Date)
 
@@ -100,7 +113,7 @@ class Users(db.Model):
 #     return jsonify(history_data)
 
 parserVideo = reqparse.RequestParser()
-parserVideo.add_argument('Authorization', type=str, location='headers', required=True)
+# parserVideo.add_argument('Authorization', type=str, location='headers', required=True)
 parserVideo.add_argument('video', type=FileStorage, location='files', required=True)
 
 @api.route('/dataset/video')
@@ -112,49 +125,49 @@ class UploadVideo(Resource):
 			shutil.rmtree(os.path.join("./runs/detect", filename))
 			return response
 		args = parserVideo.parse_args()
-		bearerAuth = args['Authorization']
+		# bearerAuth = args['']
 		video = args['video']
-		if bearerAuth.split(' ')[0] != 'Bearer':
-			return {
-				'message': 'Bearer token not found!'
-			}, 401
-		if video is None:
-			return {
-				'message': 'Video is required!'
-			}, 400
-		token = bearerAuth.split(' ')[1]
-		try:
-			payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"], audience=AUDIENCE_MOBILE, issuer=ISSUER)
-			user = db.session.execute(db.select(User).filter_by(id=payload['user_id'])).first()
-			if user is None:
-				return {
-					'message': 'User not found!'
-				}, 404
-			if video.filename == '':
+		# if bearerAuth.split(' ')[0] != 'Bearer':
+		# 	return {
+		# 		'message': 'Bearer token not found!'
+		# 	}, 401
+		# if video is None:
+		# 	return {
+		# 		'message': 'Video is required!'
+		# 	}, 400
+		# token = bearerAuth.split(' ')[1]
+		# try:
+		# 	payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"], audience=AUDIENCE_MOBILE, issuer=ISSUER)
+		# 	user = db.session.execute(db.select(User).filter_by(id=payload['user_id'])).first()
+		# 	if user is None:
+		# 		return {
+		# 			'message': 'User not found!'
+		# 		}, 404
+		if video.filename == '':
 				return {
 					'message': 'File not found!'
 				}, 400
-			if video and allowed_file(video.filename):
+		if video and allowed_file(video.filename):
 				filename = secure_filename(video.filename)
-				video.save(os.path.join("/video", filename))
-			subprocess.run(['python3', 'detect.py', '--source', f'./video/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])	
-			print('success predict')
-			os.remove(f'.video/{filename}')
-			print('success remove')
-			return send_file(os.path.join(f"./runs/detect/{filename}", filename), mimetype='video/mp4', as_attachment=True, download_name=filename)
+				video.save(os.path.join("./video", filename))
+		subprocess.run(['python3', 'detect.py', '--source', f'./video/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])	
+		print('success predict')
+		os.remove(f'./video/{filename}')
+		print('success remove')
+		return send_file(os.path.join(f"./runs/detect/{filename}", filename), mimetype='video/mp4', as_attachment=True, download_name=filename)
 			
-		except jwt.ExpiredSignatureError:
-			return {
-				'message': 'Token is expired!'
-			}, 400
-		except jwt.InvalidTokenError:
-			return {
-				'message': 'Invalid Token!'
-			}, 400
-		except Exception as err:
-			return {
-				'message': str(err)
-			}, 500
+		# except jwt.ExpiredSignatureError:
+		# 	return {
+		# 		'message': 'Token is expired!'
+		# 	}, 400
+		# except jwt.InvalidTokenError:
+		# 	return {
+		# 		'message': 'Invalid Token!'
+		# 	}, 400
+		# except Exception as err:
+		# 	return {
+		# 		'message': str(err)
+		# 	}, 500
 
 
 #parserRegister
@@ -164,7 +177,6 @@ regParser.add_argument('lastname', type=str, help='lastname', location='json', r
 regParser.add_argument('email', type=str, help='Email', location='json', required=True)
 regParser.add_argument('password', type=str, help='Password', location='json', required=True)
 regParser.add_argument('confirm_password', type=str, help='Confirm Password', location='json', required=True)
-
 
 @api.route('/register')
 class Registration(Resource):
@@ -199,47 +211,109 @@ class Registration(Resource):
         msg = Message(subject='Verification OTP',sender=os.environ.get("MAIL_USERNAME"),recipients=[user.email])
         token =  random.randrange(10000,99999)
         session['email'] = user.email
-        session['token'] = str(token)
+        user.token = str(token)
         print("Isi session email:", session['email'])
-        print("Isi session token:", session['token'])
+        print("Isi session token:", user.token)
         msg.html=render_template(
         'verify_email.html', token=token)
         mail.send(msg)
         db.session.commit()
         return {'message':
             'Registrasi Berhasil. Silahkan cek email untuk verifikasi.'}, 201
+# @api.route('/register')
+# class Registration(Resource):
+#     @api.expect(regParser)
+#     def post(self):
+#         # BEGIN: Get request parameters.
+#         args        = regParser.parse_args()
+#         firstname   = args['firstname']
+#         lastname    = args['lastname']
+#         email       = args['email']
+#         password    = args['password']
+#         password2  = args['confirm_password']
+#         is_verified = False
 
+#         # cek confirm password
+#         if password != password2:
+#             return {
+#                 'messege': 'Password tidak cocok'
+#             }, 400
+
+#         #cek email sudah terdaftar
+#         user = db.session.execute(db.select(Users).filter_by(email=email)).first()
+#         if user:
+#             return "Email sudah terpakai silahkan coba lagi menggunakan email lain"
+#         user          = Users()
+#         user.firstname    = firstname
+#         user.lastname     = lastname
+#         user.email    = email
+#         user.password = generate_password_hash(password)
+#         user.is_verified = is_verified
+#         db.session.add(user)
+#         msg = Message(subject='Verification OTP',sender=os.environ.get("MAIL_USERNAME"),recipients=[user.email])
+#         token =  random.randrange(10000,99999)
+#         session['email'] = user.email
+#         user.token = str(token)
+#         print("Isi session email:", session['email'])
+#         print("Isi session token:", user.token)
+#         msg.html=render_template(
+#         'verify_email.html', token=token)
+#         mail.send(msg)
+#         db.session.commit()
+#         return {'message':
+#             'Registrasi Berhasil. Silahkan cek email untuk verifikasi.'}, 201
+# @api.route('/register')
+# class Registration(Resource):
+#     @api.expect(regParser)
+#     def post(self):
+#         # BEGIN: Get request parameters.
+#         args        = regParser.parse_args()
+#         firstname   = args['firstname']
+#         lastname    = args['lastname']
+#         email       = args['email']
+#         password    = args['password']
+#         password2  = args['confirm_password']
+#         is_verified = False
+
+#         # cek confirm password
+#         if password != password2:
+#             return {
+#                 'messege': 'Password tidak cocok'
+#             }, 400
+
+#         #cek email sudah terdaftar
+#         user = db.session.execute(db.select(Users).filter_by(email=email)).first()
+#         if user:
+#             return "Email sudah terpakai silahkan coba lagi menggunakan email lain"
+#         user          = Users()
+#         user.firstname    = firstname
+#         user.lastname     = lastname
+#         user.email    = email
+#         user.password = generate_password_hash(password)
+#         user.is_verified = is_verified
+#         db.session.add(user)
+#         msg = Message(subject='Verification OTP',sender=os.environ.get("MAIL_USERNAME"),recipients=[user.email])
+#         token =  random.randrange(10000,99999)
+#         session['email'] = user.email
+#         session['token'] = str(token)
+#         print("Isi session email:", session['email'])
+#         print("Isi session token:", session['token'])
+#         msg.html=render_template(
+#         'verify_email.html', token=token)
+#         mail.send(msg)
+#         db.session.commit()
+#         return {'message':
+#             'Registrasi Berhasil. Silahkan cek email untuk verifikasi.'}, 201
+
+# otpparser = reqparse.RequestParser()
+# otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
+
+# otpparser = reqparse.RequestParser()
+# otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
+# otpparser.add_argument('email', type=str, help='email', location='json', required=True)                                    @api.route('/verifikasi')
 otpparser = reqparse.RequestParser()
 otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
-# @api.route('/verifikasi')
-# class Verify(Resource):
-#     @api.expect(otpparser)
-#     def post(self):
-#         args = otpparser.parse_args()
-#         otp = args['otp']
-#         if 'token' in session:
-#             sesion = session['token']
-#             if otp == sesion:
-#                 email = session['email']
-
-#                 user = Users.query.filter_by(email=email).first()
-#                 user.is_verified = True
-
-#                 db.session.commit()  # Melakukan komit ke database
-
-#                 if db.session.is_active:  # Memeriksa apakah sesi masih aktif
-#                     session.pop('token', None)
-#                     print("Perubahan berhasil dikommit ke database")
-#                     return {'message': 'Email berhasil diverifikasi'}
-#                 else:
-#                     print("Terjadi kesalahan saat melakukan komit")
-#                     db.session.rollback()  # Mengembalikan perubahan jika terjadi kesalahan
-#                     return {'message': 'Terjadi kesalahan pada server'}
-
-#             else:
-#                 return {'message': 'Kode OTP Salah'}
-#         else:
-#             return {'message': 'Kode OTP Salah'}
+otpparser.add_argument('email', type=str, help='email', location='json', required=True)
 
 @api.route('/verifikasi')
 class Verify(Resource):
@@ -248,22 +322,48 @@ class Verify(Resource):
         args = otpparser.parse_args()
         otp = args['otp']
         print("Kode OTP:", otp)  # Cetak kode OTP di log
-        if 'token' in session:
-            sesion = session['token']
-            print("Token:", sesion)
-            if otp == sesion:
-                email = session['email']
+        if args['email'] != '':
+            email = args['email']
 
-                user = Users.query.filter_by(email=email).first()
+            user = Users.query.filter_by(email=email).first()
+            if user.token == otp :
                 user.is_verified = True
+                user.token = None
                 db.session.commit()
-                session.pop('token',None)
+            # session.pop('token',None)
                 print('Email berhasil diverifikasi')
                 return {'message' : 'Email berhasil diverifikasi'}
+        # if 'token' in args:
+        #     sesion = args ['token']
+        #     print("Token:", sesion)
+        #     else:
+        #         return {'message' : 'Kode Otp Salah'}
             else:
-                return {'message' : 'Kode Otp Salah'}
-        else:
-            return {'message' : 'Kode Otp Salah'}
+                return {'message' : 'OTP salah'}
+
+# @api.route('/verifikasi')
+# class Verify(Resource):
+#     @api.expect(otpparser)
+#     def post(self):
+#         args = otpparser.parse_args()
+#         otp = args['otp']
+#         print("Kode OTP:", otp)  # Cetak kode OTP di log
+#         if 'token' in session:
+#             sesion = session['token']
+#             print("Token:", sesion)
+#             if otp == sesion:
+#                 email = session['email']
+
+#                 user = Users.query.filter_by(email=email).first()
+#                 user.is_verified = True
+#                 db.session.commit()
+#                 session.pop('token',None)
+#                 print('Email berhasil diverifikasi')
+#                 return {'message' : 'Email berhasil diverifikasi'}
+#             else:
+#                 return {'message' : 'Kode Otp Salah'}
+#         else:
+#             return {'message' : 'Kode Otp Salah'}
 logParser = reqparse.RequestParser()
 logParser.add_argument('email', type=str, help='Email', location='json', required=True)
 logParser.add_argument('password', type=str, help='Password', location='json', required=True)
