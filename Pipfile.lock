@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "0f0e7c6e6c5fad4e1b43cd1e4c243d43cdd6370fbef22d40bbcfead6a71c2898"
+            "sha256": "beff8ef1bb9d19c8687e99157c0f62222c4787ab948cafee97d3bfcbd4c509a1"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -324,11 +324,11 @@
         },
         "filelock": {
             "hashes": [
-                "sha256:42f1e4ff2b497311213d61ad7aac5fed9050608e5309573f101eefa94143134a",
-                "sha256:82b1f7da46f0ae42abf1bc78e548667f484ac59d2bcec38c713cee7e2eb51e83"
+                "sha256:002740518d8aa59a26b0c76e10fb8c6e15eae825d34b6fdf670333fd7b938d81",
+                "sha256:cbb791cdea2a72f23da6ac5b5269ab0a0d161e9ef0100e653b69049a7706d1ec"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==3.12.1"
+            "version": "==3.12.2"
         },
         "flask": {
             "hashes": [
@@ -533,11 +533,11 @@
         },
         "jsonschema": {
             "hashes": [
-                "sha256:d6a4f48fcecc06e8915c30de13076837b624999167655c4c643b50ed93c0e526",
-                "sha256:f1eb210cc329f9cc09bd10c5f7a287f5b1538de6d5662ef2528b9f9b428dbd85"
+                "sha256:1b0ae112eb7a9681cc0a2a83eabf564b62417128d9c2dbd940eb410d20a8bbb9",
+                "sha256:7641e516a53ac67221a8045eccf11ba30312f9c28e173c911b84561f6f17fccb"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==4.18.0a9"
+            "version": "==4.18.0a10"
         },
         "jsonschema-specifications": {
             "hashes": [
@@ -1306,11 +1306,11 @@
         },
         "ultralytics": {
             "hashes": [
-                "sha256:646b462d19ceebdbbec81e72d003e896c1cc2549d199efc60e2f5d45cab9f3f4",
-                "sha256:945b11574f6996dc047d5e7c943be7db473fbbac574b1b8e4245ec5ce26717e8"
+                "sha256:7a23b6e2794876329c4f88456d5626a79bd67b94ab9d5a8680a961ffd5ed4e34",
+                "sha256:833ccac34382b8a7ad41ecbba010f7db840418db9346f8a750ed2bd495969022"
             ],
             "index": "pypi",
-            "version": "==8.0.116"
+            "version": "==8.0.111"
         },
         "urllib3": {
             "hashes": [

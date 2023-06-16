@@ -1,4 +1,6 @@
 import pymysql
+import torch
+from ultralytics import YOLO
 pymysql.install_as_MySQLdb()
 from flask import Flask, after_this_request, make_response, jsonify, render_template, send_file,session
 from flask_restx import Resource, Api, reqparse
@@ -10,7 +12,9 @@ import jwt, os,random
 from flask_mail import Mail, Message
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+import subprocess
 
+import cv2
 import os
 import shutil
 import subprocess
@@ -19,6 +23,11 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', "mp4"}
 def allowed_file(filename):
 	return '.' in filename and \
 		filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+from models.experimental import attempt_load
+from utils.general import check_img_size, non_max_suppression
+
+
 # Yolov5 library
 # import cv2
 # from PIL import Image
@@ -116,58 +125,29 @@ parserVideo = reqparse.RequestParser()
 # parserVideo.add_argument('Authorization', type=str, location='headers', required=True)
 parserVideo.add_argument('video', type=FileStorage, location='files', required=True)
 
-@api.route('/dataset/video')
-class UploadVideo(Resource):
-	@api.expect(parserVideo)
-	def post(self):
-		@after_this_request
-		def removed_file(response):
-			shutil.rmtree(os.path.join("./runs/detect", filename))
-			return response
-		args = parserVideo.parse_args()
-		# bearerAuth = args['']
-		video = args['video']
-		# if bearerAuth.split(' ')[0] != 'Bearer':
-		# 	return {
-		# 		'message': 'Bearer token not found!'
-		# 	}, 401
-		# if video is None:
-		# 	return {
-		# 		'message': 'Video is required!'
-		# 	}, 400
-		# token = bearerAuth.split(' ')[1]
-		# try:
-		# 	payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"], audience=AUDIENCE_MOBILE, issuer=ISSUER)
-		# 	user = db.session.execute(db.select(User).filter_by(id=payload['user_id'])).first()
-		# 	if user is None:
-		# 		return {
-		# 			'message': 'User not found!'
-		# 		}, 404
-		if video.filename == '':
-				return {
-					'message': 'File not found!'
-				}, 400
-		if video and allowed_file(video.filename):
-				filename = secure_filename(video.filename)
-				video.save(os.path.join("./video", filename))
-		subprocess.run(['python3', 'detect.py', '--source', f'./video/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])	
-		print('success predict')
-		os.remove(f'./video/{filename}')
-		print('success remove')
-		return send_file(os.path.join(f"./runs/detect/{filename}", filename), mimetype='video/mp4', as_attachment=True, download_name=filename)
-			
-		# except jwt.ExpiredSignatureError:
-		# 	return {
-		# 		'message': 'Token is expired!'
-		# 	}, 400
-		# except jwt.InvalidTokenError:
-		# 	return {
-		# 		'message': 'Invalid Token!'
-		# 	}, 400
-		# except Exception as err:
-		# 	return {
-		# 		'message': str(err)
-		# 	}, 500
+ALLOWED_EXTENSIONS = {'3gp', 'mkv', 'avi', 'mp4'}
+def allowed_file(filename):
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+detectParser = api.parser()
+detectParser.add_argument('video', location='files', type=FileStorage, required=True)
+@api.route('/detect')
+class Detect(Resource):
+    @api.expect(detectParser)
+    def post(self):
+        args = detectParser.parse_args()
+        video = args['video']
+        if video and allowed_file(video.filename):
+            filename = secure_filename(video.filename)
+            video.save(os.path.join("./video", filename))
+            subprocess.run(['python', 'detect.py', '--source', f'./video/{filename}', '--weights', 'best.onnx', '--name', f'{filename}'])
+            print('success predict')
+            os.remove(f'./video/{filename}')
+            print('success remove')
+            return send_file(os.path.join(f"./runs/detect/{filename}", filename), mimetype='video/mp4', as_attachment=True, download_name=filename)
+        else:
+            return {'message' : 'invalid file extension'},400
 
 
 #parserRegister
@@ -220,97 +200,7 @@ class Registration(Resource):
         db.session.commit()
         return {'message':
             'Registrasi Berhasil. Silahkan cek email untuk verifikasi.'}, 201
-# @api.route('/register')
-# class Registration(Resource):
-#     @api.expect(regParser)
-#     def post(self):
-#         # BEGIN: Get request parameters.
-#         args        = regParser.parse_args()
-#         firstname   = args['firstname']
-#         lastname    = args['lastname']
-#         email       = args['email']
-#         password    = args['password']
-#         password2  = args['confirm_password']
-#         is_verified = False
 
-#         # cek confirm password
-#         if password != password2:
-#             return {
-#                 'messege': 'Password tidak cocok'
-#             }, 400
-
-#         #cek email sudah terdaftar
-#         user = db.session.execute(db.select(Users).filter_by(email=email)).first()
-#         if user:
-#             return "Email sudah terpakai silahkan coba lagi menggunakan email lain"
-#         user          = Users()
-#         user.firstname    = firstname
-#         user.lastname     = lastname
-#         user.email    = email
-#         user.password = generate_password_hash(password)
-#         user.is_verified = is_verified
-#         db.session.add(user)
-#         msg = Message(subject='Verification OTP',sender=os.environ.get("MAIL_USERNAME"),recipients=[user.email])
-#         token =  random.randrange(10000,99999)
-#         session['email'] = user.email
-#         user.token = str(token)
-#         print("Isi session email:", session['email'])
-#         print("Isi session token:", user.token)
-#         msg.html=render_template(
-#         'verify_email.html', token=token)
-#         mail.send(msg)
-#         db.session.commit()
-#         return {'message':
-#             'Registrasi Berhasil. Silahkan cek email untuk verifikasi.'}, 201
-# @api.route('/register')
-# class Registration(Resource):
-#     @api.expect(regParser)
-#     def post(self):
-#         # BEGIN: Get request parameters.
-#         args        = regParser.parse_args()
-#         firstname   = args['firstname']
-#         lastname    = args['lastname']
-#         email       = args['email']
-#         password    = args['password']
-#         password2  = args['confirm_password']
-#         is_verified = False
-
-#         # cek confirm password
-#         if password != password2:
-#             return {
-#                 'messege': 'Password tidak cocok'
-#             }, 400
-
-#         #cek email sudah terdaftar
-#         user = db.session.execute(db.select(Users).filter_by(email=email)).first()
-#         if user:
-#             return "Email sudah terpakai silahkan coba lagi menggunakan email lain"
-#         user          = Users()
-#         user.firstname    = firstname
-#         user.lastname     = lastname
-#         user.email    = email
-#         user.password = generate_password_hash(password)
-#         user.is_verified = is_verified
-#         db.session.add(user)
-#         msg = Message(subject='Verification OTP',sender=os.environ.get("MAIL_USERNAME"),recipients=[user.email])
-#         token =  random.randrange(10000,99999)
-#         session['email'] = user.email
-#         session['token'] = str(token)
-#         print("Isi session email:", session['email'])
-#         print("Isi session token:", session['token'])
-#         msg.html=render_template(
-#         'verify_email.html', token=token)
-#         mail.send(msg)
-#         db.session.commit()
-#         return {'message':
-#             'Registrasi Berhasil. Silahkan cek email untuk verifikasi.'}, 201
-
-# otpparser = reqparse.RequestParser()
-# otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
-
-# otpparser = reqparse.RequestParser()
-# otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
-# otpparser.add_argument('email', type=str, help='email', location='json', required=True)                                    @api.route('/verifikasi')
 otpparser = reqparse.RequestParser()
 otpparser.add_argument('otp', type=str, help='otp', location='json', required=True)
 otpparser.add_argument('email', type=str, help='email', location='json', required=True)
@@ -341,29 +231,149 @@ class Verify(Resource):
             else:
                 return {'message' : 'OTP salah'}
 
-# @api.route('/verifikasi')
-# class Verify(Resource):
-#     @api.expect(otpparser)
-#     def post(self):
-#         args = otpparser.parse_args()
-#         otp = args['otp']
-#         print("Kode OTP:", otp)  # Cetak kode OTP di log
-#         if 'token' in session:
-#             sesion = session['token']
-#             print("Token:", sesion)
-#             if otp == sesion:
-#                 email = session['email']
 
-#                 user = Users.query.filter_by(email=email).first()
-#                 user.is_verified = True
-#                 db.session.commit()
-#                 session.pop('token',None)
-#                 print('Email berhasil diverifikasi')
-#                 return {'message' : 'Email berhasil diverifikasi'}
-#             else:
-#                 return {'message' : 'Kode Otp Salah'}
-#         else:
-#             return {'message' : 'Kode Otp Salah'}
+
+#histori parser
+historiParser = reqparse.RequestParser()
+historiParser.add_argument('nama', type=str, help='Nama', location='json', required=True)
+historiParser.add_argument('nama_gerakan', type=str, help='Nama Gerakan', location='json', required=True)
+historiParser.add_argument('tanggal', type=str, help='Tanggal', location='json', required=True)
+
+#membuat histori baru
+# @api.route('/add-histori')
+# class AddHistoriResource(Resource):
+#     @api.expect(authParser, historiParser)
+#     def post(self):
+#         args = authParser.parse_args()
+#         bearerAuth = args['Authorization']
+
+#         jwtToken = bearerAuth[7:]
+#         token = decodetoken(jwtToken)
+#         user_id = token['user_id']
+
+#         args = historiParser.parse_args()
+#         nama = args['nama']
+#         nama_gerakan = args['nama_gerakan']
+#         tanggal = datetime.strptime(args['tanggal'], '%Y-%m-%d').date()
+
+#         histori = Histori(user_id=user_id, nama=nama, nama_gerakan=nama_gerakan, tanggal=tanggal)
+#         db.session.add(histori)
+#         db.session.commit()
+
+#         return {'message': 'Histori berhasil ditambahkan'}, 201
+
+# #menampilkan data histori bedasarkan id
+# @api.route('/read-histori')
+# class ReadHistori(Resource):
+#     @api.expect(authParser)
+#     def get(self):
+#         # Mendapatkan user_id dari token yang terverifikasi
+#         # user_id = get_jwt_identity()
+#         args = authParser.parse_args()
+#         bearerAuth = args['Authorization']
+
+#         jwtToken = bearerAuth[7:]
+#         token = decodetoken(jwtToken)
+#         user_id = token['user_id']
+
+#         # Mengambil data histori berdasarkan user_id
+#         histori = Histori.query.filter_by(user_id=user_id).all()
+#         if not histori:
+#             return {'message': 'Histori tidak ditemukan'}, 404
+
+#         histori_data = []
+#         for h in histori:
+#             histori_data.append({
+#                 'id': h.id,
+#                 'nama': h.nama,
+#                 'nama_gerakan': h.nama_gerakan,
+#                 'tanggal': h.tanggal.strftime('%Y-%m-%d')
+#             })
+
+#         return histori_data, 200
+
+model = YOLO("D:/bigproject/awas-api-main/models/best.pt")
+# model = torch.load("D:/bigproject/awas-api-main/models/best.pt")
+threshold = 0.5
+class_name_dict = {0: 'sepeda-motor', 1: 'sepeda'}
+
+# @app.route('/realtime')
+# def video_realtime():
+#     cap = cv2.VideoCapture(0)  # use default camera
+#     if not cap.isOpened():
+#         raise IOError("Cannot open webcam")
+
+#     cv2.namedWindow('deteksi kendaraan', cv2.WINDOW_NORMAL)
+
+
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             break
+
+#         H, W, _ = frame.shape
+
+#         results = model(frame)[0]
+
+#         for result in results.boxes.data.tolist():
+#             x1, y1, x2, y2, score, class_id = result
+
+#             if score > threshold:
+#                 if class_id == 0:
+#                     class_label = 'sepeda-motor'
+#                     cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 4)
+#                     cv2.putText(frame, class_label.upper(), (int(x1), int(y1 - 10)),
+#                                 cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 255), 3, cv2.LINE_AA)
+#                 else:
+#                     class_label = 'sepeda'
+#                     cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 4)
+#                     cv2.putText(frame, class_label.upper(), (int(x1), int(y1 - 10)),
+#                                 cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 3, cv2.LINE_AA)
+
+#         # Add timestamp
+#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#         cv2.putText(frame, timestamp, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        
+#         cv2.imshow('Real-time Detection', frame)
+
+#         if cv2.waitKey(1) & 0xFF == ord('q'):
+#             break
+
+#     cap.release()
+#     cv2.destroyAllWindows()
+@app.route('/realtime')
+def object_detection():
+    video_capture = cv2.VideoCapture(0)
+
+    results = []
+
+    while True:
+        ret, frame = video_capture.read()
+
+        # Preprocess the frame
+        # resized_frame = cv2.resize(frame, (input_details[0]['shape'][2], input_details[0]['shape'][1]))
+        # input_data = np.expand_dims(resized_frame.astype(np.float32), axis=0)
+        prediction = model.predict(source=frame, show=True, save=True, conf=0.5) #WebCamera
+        print("Bounding Box :", prediction[0].boxes.xyxy)
+        print("Classes :", prediction[0].boxes.cls)
+
+        # Convert the frame to JPEG format
+        ret, buffer = cv2.imencode('.jpg', frame)
+        frame = buffer.tobytes()
+
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    video_capture.release()
+    cv2.destroyAllWindows()
+   
+    
+    return results
+
 logParser = reqparse.RequestParser()
 logParser.add_argument('email', type=str, help='Email', location='json', required=True)
 logParser.add_argument('password', type=str, help='Password', location='json', required=True)
