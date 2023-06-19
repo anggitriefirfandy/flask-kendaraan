@@ -292,10 +292,10 @@ historiParser.add_argument('tanggal', type=str, help='Tanggal', location='json',
 
 #         return histori_data, 200
 
-model = YOLO("D:/bigproject/awas-api-main/models/best.pt")
+# model = YOLO("D:/bigproject/awas-api-main/models/best.pt")
 # model = torch.load("D:/bigproject/awas-api-main/models/best.pt")
-threshold = 0.5
-class_name_dict = {0: 'sepeda-motor', 1: 'sepeda'}
+# threshold = 0.5
+# class_name_dict = {0: 'sepeda-motor', 1: 'sepeda'}
 
 # @app.route('/realtime')
 # def video_realtime():
@@ -342,37 +342,37 @@ class_name_dict = {0: 'sepeda-motor', 1: 'sepeda'}
 
 #     cap.release()
 #     cv2.destroyAllWindows()
-@app.route('/realtime')
-def object_detection():
-    video_capture = cv2.VideoCapture(0)
+# @app.route('/realtime')
+# def object_detection():
+#     video_capture = cv2.VideoCapture(0)
 
-    results = []
+#     results = []
 
-    while True:
-        ret, frame = video_capture.read()
+#     while True:
+#         ret, frame = video_capture.read()
 
-        # Preprocess the frame
-        # resized_frame = cv2.resize(frame, (input_details[0]['shape'][2], input_details[0]['shape'][1]))
-        # input_data = np.expand_dims(resized_frame.astype(np.float32), axis=0)
-        prediction = model.predict(source=frame, show=True, save=True, conf=0.5) #WebCamera
-        print("Bounding Box :", prediction[0].boxes.xyxy)
-        print("Classes :", prediction[0].boxes.cls)
+#         # Preprocess the frame
+#         # resized_frame = cv2.resize(frame, (input_details[0]['shape'][2], input_details[0]['shape'][1]))
+#         # input_data = np.expand_dims(resized_frame.astype(np.float32), axis=0)
+#         prediction = model.predict(source=frame, show=True, save=True, conf=0.5) #WebCamera
+#         print("Bounding Box :", prediction[0].boxes.xyxy)
+#         print("Classes :", prediction[0].boxes.cls)
 
-        # Convert the frame to JPEG format
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
+#         # Convert the frame to JPEG format
+#         ret, buffer = cv2.imencode('.jpg', frame)
+#         frame = buffer.tobytes()
 
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+#         yield (b'--frame\r\n'
+#                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+#         if cv2.waitKey(1) & 0xFF == ord('q'):
+#             break
 
-    video_capture.release()
-    cv2.destroyAllWindows()
+#     video_capture.release()
+#     cv2.destroyAllWindows()
    
     
-    return results
+#     return results
 
 logParser = reqparse.RequestParser()
 logParser.add_argument('email', type=str, help='Email', location='json', required=True)
@@ -530,6 +530,17 @@ class Password(Resource):
                 'message' : 'Token Tidak valid! Silahkan, Sign in!'
             }, 401
         return {'message' : 'Password Berhasil Diubah'}, 200
+
+@app.route("/realtime")
+def hello_world():
+    return render_template('index.html')
+
+@app.route("/opencam", methods=['GET'])
+def opencam():
+    print("here")
+    subprocess.run(['python', 'detect.py', '--source', '0', '--weights', 'best.pt'])
+    return "done"
+
 
 if __name__ == '__main__':
     # app.run(ssl_context='adhoc', debug=True)
