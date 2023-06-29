@@ -51,7 +51,7 @@ from utils.general import (LOGGER, Profile, check_file, check_img_size,check_ims
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, smart_inference_mode
 
-app = Flask(__name__)
+app = Flask(name, template_folder='Templates')
 api = Api(app)
 CORS(app)
 port = int(os.environ.get("RAILWAY_PORT", 5000))
@@ -79,8 +79,8 @@ class Users(db.Model):
     password = db.Column(db.String(128), nullable=False)
     is_verified = db.Column(db.Boolean(),nullable=False)
     token = db.Column(db.String(5), nullable=False)
-    createdAt = db.Column(db.Date)
-    updatedAt = db.Column(db.Date)
+    createdAt = db.Column(db.Date, default=datetime.utcnow)
+    updatedAt = db.Column(db.Date, default=datetime.utcnow)
 
 # class History(db.Model):
 #     id = db.Column(db.Integer(), primary_key=True, nullable=False)
