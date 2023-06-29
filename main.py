@@ -51,7 +51,8 @@ from utils.general import (LOGGER, Profile, check_file, check_img_size,check_ims
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, smart_inference_mode
 
-app = Flask(name, template_folder='Templates')
+
+app = Flask(__name__, template_folder='Templates')
 api = Api(app)
 CORS(app)
 port = int(os.environ.get("RAILWAY_PORT", 5000))
